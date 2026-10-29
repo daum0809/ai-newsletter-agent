@@ -352,7 +352,12 @@ def academy_page_blocks(items, notices):
 def publish_notion_draft(state, items, today):
     now = datetime.now(timezone(timedelta(hours=9)))
     label = f'{now.year}년 {now.month}월 {(now.day - 1) // 7 + 1}주'
-    notices = academy_notices(today) if os.getenv('NOTION_TOKEN') else []
+    notices, notice_error = [], ''
+    if os.getenv('NOTION_TOKEN'):
+        try:
+            notices = academy_notices(today)
+        except Exception as exc:  # 학원 소식을 못 읽어도 기사 초안은 만듭니다.
+            notice_error = f'; 학원 소식 읽기 실패: {type(exc).__name__}'
     blocks = academy_page_blocks(items, notices)
     title = f'{CONFIG["title"]} · {label} (초안)'
     if not state['publish_enabled']:
@@ -369,7 +374,7 @@ def publish_notion_draft(state, items, today):
         'children': blocks})
     response.raise_for_status()
     url = response.json()['url']
-    msg = f'노션 초안 생성 (학원 소식 {len(notices)}건) {url}'
+    msg = f'노션 초안 생성 (학원 소식 {len(notices)}건{notice_error}) {url}'
     if os.getenv('DISCORD_WEBHOOK_URL'):  # 원장에게 "초안 준비됨" 알림
         requests.post(os.environ['DISCORD_WEBHOOK_URL'], timeout=15, json={'embeds': [{
             'title': f'📝 {title}', 'url': url,
