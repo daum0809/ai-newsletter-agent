@@ -34,6 +34,7 @@ copy .env.example .env   # 메모장으로 열어 ANTHROPIC_API_KEY 입력
 .\.venv\Scripts\python selftest_verify.py      # 검수 자가점검 (API 4회)
 .\.venv\Scripts\python run.py                  # 전체 실행, Discord로 보내지 않음
 .\.venv\Scripts\python run.py --publish        # DISCORD_WEBHOOK_URL 설정 후 실제 발행
+.\.venv\Scripts\python run.py --notion-only    # Discord 없이 노션에만 저장
 ```
 
 `--hours 48`로 수집 기간을 바꿀 수 있습니다. API 사용은 비용이 발생합니다.
