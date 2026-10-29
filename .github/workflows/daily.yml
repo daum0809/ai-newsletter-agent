@@ -27,6 +27,8 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_DATABASE_ID: 75e705f0b07d44a696fc7bdc16000988
           # 예약 실행은 실제 발행, 수동 실행은 입력값(기본 1 = 시험)
           DRY_RUN: ${{ github.event_name == 'schedule' && '0' || github.event.inputs.dry_run }}
       - uses: actions/upload-artifact@v7

@@ -46,6 +46,14 @@ copy .env.example .env   # 메모장으로 열어 ANTHROPIC_API_KEY 입력
 
 예약 실행은 실제 발행(DRY_RUN=0)으로 돕니다. 예약은 지연될 수 있고, 공개 저장소는 60일간 활동이 없으면 예약이 꺼질 수 있습니다. 웹훅 URL은 비밀번호처럼 다루세요.
 
+## 노션 아카이브 (지난 호 모아 보기)
+
+실제 발행(`--publish` 또는 예약 실행) 때마다 검수 통과 기사를 노션 DB "📰 AI 뉴스레터 아카이브"에 한 줄씩 저장합니다. 같은 원문 URL은 다시 저장하지 않으며, 노션 저장이 실패해도 Discord 발행은 그대로 진행됩니다.
+
+1. https://www.notion.so/profile/integrations 에서 내부 통합을 만들고 토큰(`ntn_...`)을 복사합니다.
+2. 노션에서 아카이브 DB 오른쪽 위 `···` → 연결(Connections) → 만든 통합을 추가합니다.
+3. 로컬은 `.env`의 `NOTION_TOKEN`, GitHub은 Secrets의 `NOTION_TOKEN`에 토큰을 넣습니다. DB ID는 워크플로에 들어 있습니다.
+
 ## 남은 개선 과제
 
 - 변경 전후를 비교할 평가셋, 발행 전 사람 승인 단계

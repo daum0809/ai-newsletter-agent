@@ -246,6 +246,38 @@ def fit_discord(embeds):
         embeds.pop()
     return embeds
 
+NOTION_API = 'https://api.notion.com/v1'
+
+def archive_to_notion(items, today):
+    """발행한 기사를 노션 DB에 한 줄씩 저장합니다. 같은 원문 URL이 이미 있으면 건너뜁니다."""
+    headers = {'Authorization': f'Bearer {os.environ["NOTION_TOKEN"]}',
+               'Notion-Version': '2022-06-28', 'Content-Type': 'application/json'}
+    db = os.environ['NOTION_DATABASE_ID']
+    text = lambda s: {'rich_text': [{'text': {'content': s[:2000]}}]}
+    saved = skipped = 0
+    for item in items:
+        found = requests.post(f'{NOTION_API}/databases/{db}/query', headers=headers, timeout=15,
+                              json={'filter': {'property': '원문', 'url': {'equals': item['url']}}, 'page_size': 1})
+        found.raise_for_status()
+        if found.json()['results']:
+            skipped += 1
+            continue
+        response = requests.post(f'{NOTION_API}/pages', headers=headers, timeout=15, json={
+            'parent': {'database_id': db},
+            'properties': {
+                '제목': {'title': [{'text': {'content': item['headline'][:2000]}}]},
+                '발행일': {'date': {'start': today}},
+                '소스': {'select': {'name': item['source']}},
+                '요약': text(item['summary']),
+                '왜 중요한가': text(item['why']),
+                '원문': {'url': item['url']},
+                '사건': text(item['event']),
+                '선정 이유': text(item['reason']),
+            }})
+        response.raise_for_status()
+        saved += 1
+    return f'노션 저장 {saved}건, 중복 건너뜀 {skipped}건'
+
 def publish(state):
     items = state.get('verified', [])
     today = datetime.now(timezone(timedelta(hours=9))).strftime('%Y-%m-%d')
@@ -264,6 +296,11 @@ def publish(state):
         response = requests.post(os.environ['DISCORD_WEBHOOK_URL'], json=payload, timeout=15)
         response.raise_for_status()
         msg = f'Discord 발행 완료 (HTTP {response.status_code})'
+        if items and os.getenv('NOTION_TOKEN') and os.getenv('NOTION_DATABASE_ID'):
+            try:
+                msg += '; ' + archive_to_notion(items, today)
+            except Exception as exc:
+                msg += f'; 노션 저장 실패: {type(exc).__name__}: {exc}'[:200]
     else:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         msg = '시험 실행: 전송하지 않음'
