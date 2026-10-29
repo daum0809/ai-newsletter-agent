@@ -29,6 +29,7 @@ def main():
     parser.add_argument('--hours', type=int, default=24)
     parser.add_argument('--publish', action='store_true', help='Discord로 실제 발행')
     parser.add_argument('--collect-only', action='store_true', help='API 키 없이 수집 단계만 점검')
+    parser.add_argument('--notion-only', action='store_true', help='Discord로 보내지 않고 노션에만 저장')
     args = parser.parse_args()
     if args.hours <= 0:
         parser.error('--hours must be positive')
@@ -43,7 +44,10 @@ def main():
     publish = args.publish or os.getenv('DRY_RUN', '1') == '0'
     if publish and not os.getenv('DISCORD_WEBHOOK_URL'):
         parser.error('DISCORD_WEBHOOK_URL 환경변수(또는 .env)를 설정하세요')
-    result = build().invoke({'hours': args.hours, 'publish_enabled': publish, 'drafted': [], 'log': []})
+    if args.notion_only and not os.getenv('NOTION_TOKEN'):
+        parser.error('NOTION_TOKEN 환경변수(또는 .env)를 설정하세요')
+    result = build().invoke({'hours': args.hours, 'publish_enabled': publish and not args.notion_only,
+                             'notion_only': args.notion_only, 'drafted': [], 'log': []})
     for line in result['log']:
         print(line)
     print(f'로그 저장: {save_log(result)}')

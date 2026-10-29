@@ -38,7 +38,7 @@ copy .env.example .env   # 메모장으로 열어 ANTHROPIC_API_KEY 입력
 
 `--hours 48`로 수집 기간을 바꿀 수 있습니다. API 사용은 비용이 발생합니다.
 
-## GitHub Actions (매일 07:30 KST)
+## GitHub Actions (매일 07:00 KST)
 
 1. 이 폴더를 GitHub 저장소로 올립니다(예약 워크플로는 기본 브랜치에 있어야 동작).
 2. Settings → Secrets and variables → Actions에 `ANTHROPIC_API_KEY`, `DISCORD_WEBHOOK_URL` 등록.

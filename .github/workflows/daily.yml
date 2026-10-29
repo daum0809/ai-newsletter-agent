@@ -2,7 +2,7 @@ name: daily-newsletter
 
 on:
   schedule:
-    - cron: '30 22 * * *'  # UTC 22:30 = KST 다음 날 07:30 (지연될 수 있음)
+    - cron: '0 22 * * *'  # UTC 22:00 = KST 다음 날 07:00 (지연될 수 있음)
   workflow_dispatch:
     inputs:
       dry_run:

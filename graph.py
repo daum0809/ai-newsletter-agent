@@ -27,6 +27,7 @@ MODELS = {
 class State(TypedDict, total=False):
     hours: int
     publish_enabled: bool
+    notion_only: bool
     collected: list
     picked: list
     drafted: Annotated[list, operator.add]
@@ -296,14 +297,17 @@ def publish(state):
         response = requests.post(os.environ['DISCORD_WEBHOOK_URL'], json=payload, timeout=15)
         response.raise_for_status()
         msg = f'Discord 발행 완료 (HTTP {response.status_code})'
-        if items and os.getenv('NOTION_TOKEN') and os.getenv('NOTION_DATABASE_ID'):
-            try:
-                msg += '; ' + archive_to_notion(items, today)
-            except Exception as exc:
-                msg += f'; 노션 저장 실패: {type(exc).__name__}: {exc}'[:200]
+    elif state.get('notion_only'):
+        msg = 'Discord 전송 생략 (노션 전용)'
     else:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         msg = '시험 실행: 전송하지 않음'
+    archive = state['publish_enabled'] or state.get('notion_only')
+    if archive and items and os.getenv('NOTION_TOKEN') and os.getenv('NOTION_DATABASE_ID'):
+        try:
+            msg += '; ' + archive_to_notion(items, today)
+        except Exception as exc:
+            msg += f'; 노션 저장 실패: {type(exc).__name__}: {exc}'[:200]
     return {'log': [f'⑤ {msg} ({len(items)}건)']}
 
 def build():
