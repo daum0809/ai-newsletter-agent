@@ -1,0 +1,37 @@
+name: daily-newsletter
+
+on:
+  schedule:
+    - cron: '30 22 * * *'  # UTC 22:30 = KST 다음 날 07:30 (지연될 수 있음)
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: '1이면 Discord로 보내지 않고 메시지만 출력'
+        default: '1'
+      hours:
+        description: '최근 몇 시간의 글을 수집할지'
+        default: '24'
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: python run.py --hours "${{ github.event.inputs.hours || '24' }}"
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          # 예약 실행은 실제 발행, 수동 실행은 입력값(기본 1 = 시험)
+          DRY_RUN: ${{ github.event_name == 'schedule' && '0' || github.event.inputs.dry_run }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: run-log-${{ github.run_id }}
+          path: logs/
+          retention-days: 30

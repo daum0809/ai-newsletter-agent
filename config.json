@@ -1,0 +1,17 @@
+{
+  "reader": "AI 모델과 개발 도구 소식을 매일 챙겨 보는 한국 개발자. 같은 발표를 다룬 중복 기사보다 실제 업무에 쓰는 기술과의 관련성, 도입 가능성, 가격·비용 변화가 있는 소식을 중시한다.",
+  "max_items": 5,
+  "batch_size": 40,
+  "batch_pass": 8,
+  "per_source_limit": 2,
+  "min_body_chars": 600,
+  "sources": [
+    {"name": "OpenAI News", "url": "https://openai.com/news/rss.xml", "tier": 1},
+    {"name": "Google DeepMind", "url": "https://deepmind.google/blog/rss.xml", "tier": 1},
+    {"name": "Hugging Face", "url": "https://huggingface.co/blog/feed.xml", "tier": 1},
+    {"name": "GitHub Blog", "url": "https://github.blog/feed/", "tier": 1},
+    {"name": "TechCrunch AI", "url": "https://techcrunch.com/category/artificial-intelligence/feed/", "tier": 2},
+    {"name": "The Verge AI", "url": "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml", "tier": 2},
+    {"name": "Simon Willison", "url": "https://simonwillison.net/atom/everything/", "tier": 2}
+  ]
+}
