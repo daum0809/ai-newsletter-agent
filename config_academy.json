@@ -1,0 +1,18 @@
+{
+  "title": "연세학원 주간 교육 소식",
+  "reader": "초등학생 자녀를 둔 학부모. 전국 단위 교육 정책 변화(교육과정, 평가, 학교 일정, 돌봄·늘봄, 디지털 교육), 초등 학습·생활 지도, 아이 안전처럼 우리 아이에게 직접 해당하는 정보를 원한다. 특정 시·도의 예산 다툼 같은 지역 소식, 고3 입시·대학 홍보성 기사, 특정 학교 홍보, 교원 인사·노조 내부 소식은 중요도가 낮다.",
+  "style": "학부모가 바로 이해할 수 있는 쉬운 말로 쓰고, 전문 용어나 줄임말은 풀어서 설명하세요. 불안을 부추기거나 과장하지 말고 차분한 존댓말을 쓰세요. why는 원문에 나온 사실 범위 안에서만 학부모에게 어떤 의미인지 쓰세요. 원문에 없는 영향(수업·돌봄 차질, 급식 변화 등)을 추측하거나, 원문에 없는 행동을 권하지 마세요.",
+  "output": "notion_page",
+  "notion_draft_parent": "4086679175e981b0a21ffc0d144aeb24",
+  "notion_notice_db": "356b862b73a94ee9a81129052d92e11c",
+  "max_items": 5,
+  "batch_size": 40,
+  "batch_pass": 8,
+  "per_source_limit": 2,
+  "min_body_chars": 600,
+  "sources": [
+    {"name": "교육언론 창", "url": "https://www.educhang.co.kr/rss/allArticle.xml", "tier": 2},
+    {"name": "에듀프레스", "url": "https://www.edupress.kr/rss/allArticle.xml", "tier": 2},
+    {"name": "베리타스알파", "url": "https://www.veritas-a.com/rss/allArticle.xml", "tier": 2}
+  ]
+}

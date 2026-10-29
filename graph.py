@@ -16,7 +16,8 @@ from langgraph.graph import StateGraph, START, END
 from langgraph.types import Send
 from pydantic import BaseModel
 
-CONFIG = json.loads((Path(__file__).parent / 'config.json').read_text(encoding='utf-8'))
+# NEWSLETTER_CONFIG로 뉴스레터를 고릅니다. config.json = AI 브리핑(Discord), config_academy.json = 학원 소식(노션 초안)
+CONFIG = json.loads((Path(__file__).parent / os.getenv('NEWSLETTER_CONFIG', 'config.json')).read_text(encoding='utf-8'))
 HEADERS = {'User-Agent': 'NewsletterAgent/1.0 (RSS reader)'}
 MODELS = {
     'select': os.getenv('MODEL_SELECT', 'claude-sonnet-5-5'),
@@ -215,7 +216,8 @@ def report(item):
         if len(body) < CONFIG['min_body_chars']:
             raise ValueError(f'본문 부족 ({len(body)}자)')
         body = body[:18000]
-        draft = llm('report', Draft, REPORT_SYSTEM.format(reader=CONFIG['reader']), f'<article>\n{body}\n</article>')
+        system = REPORT_SYSTEM.format(reader=CONFIG['reader']) + CONFIG.get('style', '')
+        draft = llm('report', Draft, system, f'<article>\n{body}\n</article>')
         if korean_ratio(draft.headline) < 0.3 or korean_ratio(draft.summary + draft.why) < 0.5:
             raise ValueError('한국어 비율 검사 실패')
         return {'drafted': [{**item, **draft.model_dump(), 'body': body}]}
@@ -295,9 +297,91 @@ def archive_to_notion(items, today):
         saved += 1
     return f'노션 저장 {saved}건, 중복 건너뜀 {skipped}건'
 
+def notion_headers():
+    return {'Authorization': f'Bearer {os.environ["NOTION_TOKEN"]}',
+            'Notion-Version': '2022-06-28', 'Content-Type': 'application/json'}
+
+def rich(content, link=None, bold=False):
+    text = {'content': content[:2000]}
+    if link:
+        text['link'] = {'url': link}
+    return {'type': 'text', 'text': text, 'annotations': {'bold': bold}}
+
+def block(kind, *parts, **extra):
+    return {'object': 'block', 'type': kind, kind: {'rich_text': list(parts), **extra}}
+
+def academy_notices(today):
+    """학원 소식 DB에서 오늘 노출 기간에 해당하는 공지를 읽습니다."""
+    db = CONFIG['notion_notice_db']
+    response = requests.post(f'{NOTION_API}/databases/{db}/query', headers=notion_headers(), timeout=15, json={
+        'filter': {'and': [
+            {'property': '노출 시작일', 'date': {'on_or_before': today}},
+            {'or': [{'property': '노출 종료일', 'date': {'on_or_after': today}},
+                    {'property': '노출 종료일', 'date': {'is_empty': True}}]},
+        ]},
+        'sorts': [{'property': '노출 시작일', 'direction': 'ascending'}]})
+    response.raise_for_status()
+    notices = []
+    for row in response.json()['results']:
+        props = row['properties']
+        title = ''.join(t['plain_text'] for t in props['제목']['title'])
+        body = ''.join(t['plain_text'] for t in props['내용']['rich_text'])
+        if title:
+            notices.append((title, body))
+    return notices
+
+def academy_page_blocks(items, notices):
+    blocks = [block('paragraph', rich('안녕하세요, 학부모님. 이번 주 학부모님께 도움이 될 교육 소식을 골라 쉽게 정리했습니다.'))]
+    if notices:
+        blocks.append(block('heading_2', rich('📌 학원 소식')))
+        for title, body in notices:
+            blocks.append(block('bulleted_list_item', rich(title, bold=True), rich(f' — {body}' if body else '')))
+    blocks.append(block('heading_2', rich('📰 이번 주 교육 소식')))
+    for item in items:
+        blocks += [
+            block('heading_3', rich(item['headline'])),
+            block('paragraph', rich(item['summary'])),
+            block('callout', rich(item['why']), icon={'type': 'emoji', 'emoji': '💡'}, color='blue_background'),
+            block('paragraph', rich(f'원문 보기 ↗ ({item["source"]})', link=item['url'])),
+        ]
+    blocks += [{'object': 'block', 'type': 'divider', 'divider': {}},
+               block('paragraph', rich('기사 요약은 AI가 원문을 바탕으로 작성하고 학원에서 확인했습니다. '
+                                       '자세한 내용은 각 원문을 확인해 주세요.'))]
+    return blocks
+
+def publish_notion_draft(state, items, today):
+    now = datetime.now(timezone(timedelta(hours=9)))
+    label = f'{now.year}년 {now.month}월 {(now.day - 1) // 7 + 1}주'
+    notices = academy_notices(today) if os.getenv('NOTION_TOKEN') else []
+    blocks = academy_page_blocks(items, notices)
+    title = f'{CONFIG["title"]} · {label} (초안)'
+    if not state['publish_enabled']:
+        print(f'[{title}] 학원 소식 {len(notices)}건, 기사 {len(items)}건, 블록 {len(blocks)}개')
+        for item in items:
+            print(f'- {item["headline"]}\n  {item["summary"]}\n  💡 {item["why"]}')
+        return '시험 실행: 노션 초안 만들지 않음'
+    if not items:
+        return '검수 통과 기사가 없어 초안을 만들지 않음'
+    response = requests.post(f'{NOTION_API}/pages', headers=notion_headers(), timeout=30, json={
+        'parent': {'page_id': CONFIG['notion_draft_parent']},
+        'icon': {'type': 'emoji', 'emoji': '📰'},
+        'properties': {'title': {'title': [rich(title)]}},
+        'children': blocks})
+    response.raise_for_status()
+    url = response.json()['url']
+    msg = f'노션 초안 생성 (학원 소식 {len(notices)}건) {url}'
+    if os.getenv('DISCORD_WEBHOOK_URL'):  # 원장에게 "초안 준비됨" 알림
+        requests.post(os.environ['DISCORD_WEBHOOK_URL'], timeout=15, json={'embeds': [{
+            'title': f'📝 {title}', 'url': url,
+            'description': f'학부모 뉴스레터 초안이 준비됐습니다. 확인 후 공개 페이지로 옮겨 주세요. (기사 {len(items)}건)'}]})
+    return msg
+
 def publish(state):
     items = state.get('verified', [])
     today = datetime.now(timezone(timedelta(hours=9))).strftime('%Y-%m-%d')
+    if CONFIG.get('output') == 'notion_page':
+        # 초안이 이 뉴스레터의 유일한 결과물이므로 실패하면 실행 자체를 실패로 둡니다(Actions 실패 알림).
+        return {'log': [f'⑤ {publish_notion_draft(state, items, today)} ({len(items)}건)']}
     if items:
         head = f'검수 통과 {len(items)}건 · 수집 {len(state["collected"])}건 중 선별'
     else:
