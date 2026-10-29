@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).parent / '.env')
 
-from graph import build, collect  # noqa: E402  (.env를 먼저 읽은 뒤 import)
+from graph import build, collect, usage_report  # noqa: E402  (.env를 먼저 읽은 뒤 import)
 
 def save_log(result):
     folder = Path(__file__).parent / 'logs'
@@ -19,6 +19,8 @@ def save_log(result):
         'log': result['log'],
         'picked': [{k: x[k] for k in ('title', 'url', 'source', 'event', 'reason')} for x in result.get('picked', [])],
         'verified': [{k: x[k] for k in ('headline', 'url', 'source')} for x in result.get('verified', [])],
+        'usage': usage_report()[0],
+        'cost_usd': round(usage_report()[1], 4),
     }
     path = folder / f'{stamp}.json'
     path.write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding='utf-8')
@@ -50,6 +52,10 @@ def main():
                              'notion_only': args.notion_only, 'drafted': [], 'log': []})
     for line in result['log']:
         print(line)
+    lines, total = usage_report()
+    for line in lines:
+        print(f'   비용 {line}')
+    print(f'⑥ 이번 실행 예상 비용 ${total:.4f} (토큰 사용량 × 공시 단가, 실제 청구는 콘솔에서 확인)')
     print(f'로그 저장: {save_log(result)}')
 
 if __name__ == '__main__':

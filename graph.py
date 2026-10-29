@@ -52,7 +52,19 @@ class Verdict(BaseModel):
     why_ok: bool
     reason: str
 
+# 100만 토큰당 달러 (입력, 출력). 단가가 바뀌면 여기만 고칩니다.
+PRICES = {'claude-sonnet-5-5': (2.00, 10.00), 'claude-haiku-5-5': (0.10, 0.50), 'claude-opus-5-5': (4.00, 20.00)}
+USAGE = {}  # 단계별 호출 수·토큰 누적
 _client = None
+
+def usage_report():
+    lines, total = [], 0.0
+    for stage, u in USAGE.items():
+        price_in, price_out = PRICES.get(MODELS[stage], (0, 0))
+        cost = (u['in'] * price_in + u['out'] * price_out) / 1e6
+        total += cost
+        lines.append(f'{stage}({MODELS[stage]}) {u["calls"]}회 입력 {u["in"]:,} 출력 {u["out"]:,} ≈ ${cost:.4f}')
+    return lines, total
 
 def llm(stage, schema, system, content):
     global _client
@@ -61,6 +73,10 @@ def llm(stage, schema, system, content):
     response = _client.messages.parse(
         model=MODELS[stage], max_tokens=16000, system=system,
         messages=[{'role': 'user', 'content': content}], output_format=schema)
+    u = USAGE.setdefault(stage, {'calls': 0, 'in': 0, 'out': 0})
+    u['calls'] += 1
+    u['in'] += response.usage.input_tokens
+    u['out'] += response.usage.output_tokens
     if response.stop_reason == 'refusal':
         raise ValueError('모델이 응답을 거절했습니다')
     if response.parsed_output is None:
