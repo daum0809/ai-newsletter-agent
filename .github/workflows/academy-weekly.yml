@@ -27,8 +27,8 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
-          # 초안이 준비되면 내 Discord로 알림
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          # 초안이 준비되면 Discord로 알림 (학원 전용 채널이 없으면 AI 브리핑 채널로)
+          DISCORD_WEBHOOK_URL: ${{ secrets.ACADEMY_DISCORD_WEBHOOK_URL || secrets.DISCORD_WEBHOOK_URL }}
           # 예약 실행은 초안 생성, 수동 실행은 입력값(기본 1 = 시험)
           DRY_RUN: ${{ github.event_name == 'schedule' && '0' || github.event.inputs.dry_run }}
       - uses: actions/upload-artifact@v7
