@@ -17,7 +17,7 @@
 - OpenAI → Claude API (`client.messages.parse` 구조화 출력, 모델 거절 처리). 단계별 모델은 `MODEL_SELECT / MODEL_REPORT / MODEL_VERIFY`로 바꿀 수 있습니다.
 - 독자·소스·선정 개수를 코드에서 `config.json`으로 분리했습니다.
 - 취재 단계를 ThreadPool 대신 LangGraph `Send` 팬아웃으로 구현했습니다.
-- why를 검수 대상에 넣고(사실과 해석을 다른 기준으로), 한국어 검사를 "한글 한 글자"가 아니라 한글 비율로 바꿨습니다.
+- why를 검수 대상에 넣고(사실과 해석을 다른 기준으로), 한국어 검사를 "한글 한 글자"가 아니라 한글 비율로 바꿨습니다. 검사에 떨어지면 한 번 다시 요청하고, 그래도 떨어지면 제외합니다.
 - 본선 탈락·중복 제외 목록까지 로그에 남기고 `logs/*.json`으로 저장합니다(Actions에서는 artifact로 30일 보관).
 - `selftest_verify.py`: 숫자·주체를 틀린 카드와 과장된 why를 일부러 넣어 검수가 잡아내는지 확인합니다.
 

@@ -217,10 +217,17 @@ def report(item):
             raise ValueError(f'본문 부족 ({len(body)}자)')
         body = body[:18000]
         system = REPORT_SYSTEM.format(reader=CONFIG['reader']) + CONFIG.get('style', '')
-        draft = llm('report', Draft, system, f'<article>\n{body}\n</article>')
-        if korean_ratio(draft.headline) < 0.3 or korean_ratio(draft.summary + draft.why) < 0.5:
-            raise ValueError('한국어 비율 검사 실패')
-        return {'drafted': [{**item, **draft.model_dump(), 'body': body}]}
+        content, log = f'<article>\n{body}\n</article>', []
+        for attempt in range(2):  # 한국어 검사에 떨어지면 한 번 다시 요청합니다.
+            draft = llm('report', Draft, system, content)
+            if korean_ratio(draft.headline) >= 0.3 and korean_ratio(draft.summary + draft.why) >= 0.5:
+                break
+            content += ('\n\n이전 답변이 한국어 기준을 통과하지 못했습니다. '
+                        'headline·summary·why를 모두 한국어 문장으로 다시 작성하세요.')
+            log.append(f'   ③ 한국어 재요청 [{item["source"]}] {item["title"][:50]}')
+        else:
+            raise ValueError('한국어 비율 검사 실패 (재요청 후에도)')
+        return {'drafted': [{**item, **draft.model_dump(), 'body': body}], 'log': log}
     except Exception as exc:
         return {'log': [f'   ③ 제외 [{item["source"]}] {item["title"][:50]}: {type(exc).__name__}: {exc}'[:250]]}
 
