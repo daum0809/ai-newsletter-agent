@@ -5,3 +5,4 @@ feedparser>=6,<7
 requests>=2,<3
 trafilatura>=2,<3
 python-dotenv>=1,<2
+langfuse>=5,<6
