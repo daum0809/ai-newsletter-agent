@@ -55,6 +55,16 @@ copy .env.example .env   # 메모장으로 열어 ANTHROPIC_API_KEY 입력
 2. 노션에서 아카이브 DB 오른쪽 위 `···` → 연결(Connections) → 만든 통합을 추가합니다.
 3. 로컬은 `.env`의 `NOTION_TOKEN`, GitHub은 Secrets의 `NOTION_TOKEN`에 토큰을 넣습니다. DB ID는 워크플로에 들어 있습니다.
 
+## Langfuse 추적 (선택)
+
+`.env`에 `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL`(예: `http://localhost:3100`)을 넣으면 `run.py` 실행 한 번이 Langfuse trace 하나(`newsletter-run`)로 남습니다.
+
+- collect·select·report·verify·publish 노드는 span, Claude 호출은 generation(모델, 입력·출력 토큰, 예상 비용, 지연 시간, 오류)으로 기록합니다. 비용은 `graph.py`의 `PRICES` 단가로 계산합니다.
+- 키가 없거나 Langfuse 서버가 꺼져 있어도 실행은 그대로 진행됩니다(서버가 꺼져 있으면 끝날 때 몇 초 기다린 뒤 전송 실패 경고만 출력).
+- `selftest_verify.py`도 케이스마다 trace(`selftest-verify`)를 남깁니다. `--collect-only`는 Claude를 부르지 않으므로 추적하지 않습니다.
+- anthropic SDK가 스스로 내보내는 `anthropic.messages.create` span은 토큰이 겹치므로 `tracing.py`에서 걸러 냅니다.
+- GitHub Actions에는 Langfuse 키를 넣지 않았으므로 추적이 꺼진 채로 돕니다.
+
 ## 남은 개선 과제
 
 - 변경 전후를 비교할 평가셋, 발행 전 사람 승인 단계

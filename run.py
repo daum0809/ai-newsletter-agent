@@ -32,6 +32,7 @@ def main():
     parser.add_argument('--notion-only', action='store_true', help='Discord로 보내지 않고 노션에만 저장')
     args = parser.parse_args()
     from graph import build, collect, usage_report
+    import tracing
     if args.hours <= 0:
         parser.error('--hours must be positive')
     if args.collect_only:
@@ -47,8 +48,15 @@ def main():
         parser.error('DISCORD_WEBHOOK_URL 환경변수(또는 .env)를 설정하세요')
     if args.notion_only and not os.getenv('NOTION_TOKEN'):
         parser.error('NOTION_TOKEN 환경변수(또는 .env)를 설정하세요')
-    result = build().invoke({'hours': args.hours, 'publish_enabled': publish and not args.notion_only,
-                             'notion_only': args.notion_only, 'drafted': [], 'log': []})
+    run_input = {'hours': args.hours, 'publish_enabled': publish and not args.notion_only,
+                 'notion_only': args.notion_only}
+    # 실행 한 번 = Langfuse trace 하나 (키가 없으면 아무 일도 하지 않음)
+    try:
+        with tracing.observation('newsletter-run', trace_name='newsletter-run', input=run_input) as trace:
+            result = build().invoke({**run_input, 'drafted': [], 'log': []})
+            tracing.update(trace, output={'log': result['log'], 'verified': len(result.get('verified', []))})
+    finally:
+        tracing.flush()
     for line in result['log']:
         print(line)
     lines, total = usage_report()

@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).parent / '.env')
 
+import tracing  # noqa: E402
 from graph import check  # noqa: E402
 
 BODY = (
@@ -28,9 +29,11 @@ CASES = [
 
 ok = 0
 for name, card, expected in CASES:
-    verdict = check({'body': BODY, **card})
+    with tracing.observation(f'selftest: {name}', trace_name='selftest-verify'):
+        verdict = check({'body': BODY, **card})
     got = verdict.facts_ok and verdict.why_ok
     ok += got == expected
     print(f'{"PASS" if got == expected else "FAIL"} {name}: 기대={expected} 결과={got} '
           f'(facts_ok={verdict.facts_ok}, why_ok={verdict.why_ok}) {verdict.reason[:100]}')
 print(f'{ok}/{len(CASES)} 일치')
+tracing.flush()

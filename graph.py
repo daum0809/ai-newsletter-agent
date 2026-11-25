@@ -16,6 +16,8 @@ from langgraph.graph import StateGraph, START, END
 from langgraph.types import Send
 from pydantic import BaseModel
 
+import tracing
+
 CONFIG = json.loads((Path(__file__).parent / 'config.json').read_text(encoding='utf-8'))
 HEADERS = {'User-Agent': 'NewsletterAgent/1.0 (RSS reader)'}
 MODELS = {
@@ -70,18 +72,26 @@ def llm(stage, schema, system, content):
     global _client
     if _client is None:
         _client = anthropic.Anthropic(timeout=120, max_retries=2)
-    response = _client.messages.parse(
-        model=MODELS[stage], max_tokens=16000, system=system,
-        messages=[{'role': 'user', 'content': content}], output_format=schema)
-    u = USAGE.setdefault(stage, {'calls': 0, 'in': 0, 'out': 0})
-    u['calls'] += 1
-    u['in'] += response.usage.input_tokens
-    u['out'] += response.usage.output_tokens
-    if response.stop_reason == 'refusal':
-        raise ValueError('모델이 응답을 거절했습니다')
-    if response.parsed_output is None:
-        raise ValueError(f'구조화 응답 없음 (stop_reason={response.stop_reason})')
-    return response.parsed_output
+    model, messages = MODELS[stage], [{'role': 'user', 'content': content}]
+    with tracing.observation(stage, as_type='generation', model=model, model_parameters={'max_tokens': 16000},
+                             input={'system': system, 'messages': messages}) as gen:
+        response = _client.messages.parse(
+            model=model, max_tokens=16000, system=system, messages=messages, output_format=schema)
+        u = USAGE.setdefault(stage, {'calls': 0, 'in': 0, 'out': 0})
+        u['calls'] += 1
+        u['in'] += response.usage.input_tokens
+        u['out'] += response.usage.output_tokens
+        price_in, price_out = PRICES.get(model, (0, 0))
+        tracing.update(gen, model=response.model, metadata={'stop_reason': response.stop_reason},
+                       usage_details={'input': response.usage.input_tokens, 'output': response.usage.output_tokens},
+                       cost_details={'input': response.usage.input_tokens * price_in / 1e6,
+                                     'output': response.usage.output_tokens * price_out / 1e6})
+        if response.stop_reason == 'refusal':
+            raise ValueError('모델이 응답을 거절했습니다')
+        if response.parsed_output is None:
+            raise ValueError(f'구조화 응답 없음 (stop_reason={response.stop_reason})')
+        tracing.update(gen, output=response.parsed_output.model_dump())
+        return response.parsed_output
 
 def canonical(url):
     u = urlsplit(url)
@@ -337,7 +347,7 @@ def publish(state):
 def build():
     graph = StateGraph(State)
     for name, fn in [('collect', collect), ('select', select), ('report', report), ('verify', verify), ('publish', publish)]:
-        graph.add_node(name, fn)
+        graph.add_node(name, tracing.node(name, fn))
     graph.add_edge(START, 'collect')
     graph.add_edge('collect', 'select')
     graph.add_conditional_edges('select', fan_out, ['report', 'verify'])
